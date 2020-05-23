@@ -207,50 +207,7 @@ class NET(nn.Module):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
 
-
-
-class newNET(nn.Module):
-    
-    # def __init__(self,nclass,insize):
-    #     super(newNET,self).__init__()
-        
-    #     self.layer1 = nn.Sequential(nn.Linear(insize,2048),nn.ReLU())
-    #     self.layer2 = nn.Sequential(nn.Linear(2048,1024),nn.ReLU())
-    #     self.layer3 = nn.Dropout(p=0.3)
-
-    #     self.layer4 = nn.Sequential(nn.Linear(1024,1024),nn.ReLU())
-    #     self.layer5 = nn.Sequential(nn.Linear(1024,nclass),nn.Sigmoid())
-
-    def __init__(self,nclass,insize):
-        super(newNET,self).__init__()
-        
-        self.layer1 = nn.Sequential(nn.Linear(insize,2048),nn.LeakyReLU())
-        self.layer2 = nn.Sequential(nn.Linear(2048,1024),nn.LeakyReLU())
-        self.layer3 = nn.Dropout(p=0.3)
-
-        self.layer4 = nn.Sequential(nn.Linear(1024,1024),nn.LeakyReLU())
-        self.layer5 = nn.Sequential(nn.Linear(1024,nclass),nn.Sigmoid())
-        
-    def forward(self,x):
-        out = self.layer1(x)
-        out = self.layer2(out)
-        out = self.layer3(out)
-        out = self.layer4(out)
-        out = self.layer5(out)
-        
-        return out
-        
-
-    def net_init(self,init_type='xavier'):
-        for m in self.modules():
-            if isinstance(m, nn.Linear):
-                if init_type == 'xavier':
-                    init.xavier_uniform(m.weight, gain=nn.init.calculate_gain('relu'))
-                elif init_type == 'kaiming':
-                    init.kaiming_normal(m.weight)
-                m.bias.data.zero_()
-
-
+                
 class newNET2(nn.Module):
     
     # def __init__(self,nclass,insize):
@@ -324,54 +281,9 @@ def loss_div_outs(out1,out2,losstype):
     if losstype == 'L1.B':
         return torch.mean(torch.sum(torch.abs(out1 - out2),1))
 
-    elif losstype == 'L1.O1':
-        #O1 target
-        if use_cuda:
-            out1 = Variable(torch.Tensor(out1.data.cpu().numpy())).cuda()
-        else:
-            out1 = Variable(torch.Tensor(out1.data.numpy()))
-        
-        return torch.mean(torch.sum(Fx.l1_loss(out2,out1,reduce=False),1))
-        
-    elif losstype == 'L1.O2':
-        if use_cuda:
-            out2 = Variable(torch.Tensor(out2.data.cpu().numpy())).cuda()
-        else:
-            out2 = Variable(torch.Tensor(out2.data.numpy()))
-        return torch.mean(torch.sum(Fx.l1_loss(out1,out2,reduce=False),1))
-
     elif losstype == 'L2.B':
         return torch.mean(torch.sum((out1 - out2)*(out1 - out2), dim=1))
         
-    elif losstype == 'L2.O1':
-        if use_cuda:
-            out1 = Variable(torch.Tensor(out1.data.cpu().numpy())).cuda()
-        else:
-            out1 = Variable(torch.Tensor(out1.data.numpy()))
-        return torch.mean(torch.sum(Fx.mse_loss(out2,out1,reduce=False),1))
-
-    elif losstype == 'L2.O2':
-        if use_cuda:
-            out2 = Variable(torch.Tensor(out2.data.cpu().numpy())).cuda()
-        else:
-            out2 = Variable(torch.Tensor(out2.data.numpy()))
-        return torch.mean(torch.sum(Fx.mse_loss(out1,out2,reduce=False),1))
-    
-    elif losstype == 'KL.B.O1':
-        out2 = out2 + 1e-10
-        fac = torch.log(torch.div(out1,out2))
-        fac = fac * out1
-        fac_batch = torch.sum(fac,1) - torch.sum(out1,1) + torch.sum(out2,1)
-        return torch.mean(fac_batch)
-        
-    elif losstype == 'KL.B.O2':
-        out1 = out1 + 1e-10
-        fac = torch.log(torch.div(out2,out1))
-        fac = fac * out2
-        fac_batch = torch.sum(fac,1) - torch.sum(out2,1) + torch.sum(out1,1)
-
-        return torch.mean(fac_batch)
-
     elif losstype == 'KL.B':
 
         fac1 = torch.log(torch.div(out1,out2 + 1e-10))
@@ -385,102 +297,7 @@ def loss_div_outs(out1,out2,losstype):
         fac_batch = fac_batch1 + fac_batch2
 
         return torch.mean(fac_batch)
-    
-    elif losstype == 'nKL.B':
-        
-        fac1 = torch.log(out1) - torch.log(out2)
-        fac2 = out1 - out2
-        fac = fac2*fac1
-        
-        fac_batch = torch.sum(fac,1)
-        
-        return torch.mean(fac_batch)
-        
-    elif losstype == 'KLE.B':
-        
-        out2n = Variable(torch.Tensor(out2.data.cpu().numpy())).cuda()
-        fac1 = Fx.kl_div(torch.log(out1),out2n,reduce=False)
-
-        out1n = Variable(torch.Tensor(out1.data.cpu().numpy())).cuda()
-        fac2 = Fx.kl_div(torch.log(out2),out1n,reduce=False)
-
-        fac_batch = torch.sum(fac1,1) + torch.sum(fac2,1)
-        return torch.mean(fac_batch)
-
-    elif losstype == 'KL.O2':
-        #O2 is target, O1 is output
-        #bregman -- not distributions
-
-        if use_cuda:
-            out2 = Variable(torch.Tensor(out2.data.cpu().numpy())).cuda()
-        else:
-            out2 = Variable(torch.Tensor(out2.data.numpy()))
-
-        fac = Fx.kl_div(torch.log(out1),out2,reduce=False)
-        fac_batch = torch.sum(fac,1) - torch.sum(out2,1) + torch.sum(out1,1) 
-        return  torch.mean(fac_batch)
-        
-    elif losstype == 'KL.O1':
-        if use_cuda:
-            out1 = Variable(torch.Tensor(out1.data.cpu().numpy())).cuda()
-        else:
-            out1 = Variable(torch.Tensor(out1.data.numpy()))
-
-        fac = Fx.kl_div(torch.log(out2),out1,reduce=False)
-        fac_batch = torch.sum(fac,1) - torch.sum(out1,1) + torch.sum(out2,1) 
-        return  torch.mean(fac_batch)
-
-    elif losstype == 'SML1.O1':
-        if use_cuda:
-            out1 = Variable(torch.Tensor(out1.data.cpu().numpy())).cuda()
-        else:
-            out1 = Variable(torch.Tensor(out1.data.numpy()))
-        
-        return Fx.smooth_l1_loss(out2,out1)
-        
-    elif losstype == 'SML1.O2':
-        if use_cuda:
-            out2 = Variable(torch.Tensor(out2.data.cpu().numpy())).cuda()
-        else:
-            out2 = Variable(torch.Tensor(out2.data.numpy()))
-        
-        return Fx.smooth_l1_loss(out1,out2)
-
-    elif losstype == 'SML1.B.O1':
-        #smooth l1 becomes same as l2..all numbers between 0 and 1 so always squared
-        raise ValueError('TO DO')
-    elif losstype == 'SML1.B.O2':
-        raise ValueError('TO DO')
-
-    elif losstype == 'IKS.B.O1':
-        #iks
-        out2 = out2 + 1e-10
-        fac = torch.div(out1,out2)
-        fac = fac - torch.log(fac) - 1
-        fac_batch = torch.sum(fac,1)
-        return torch.mean(fac_batch)
-        
-    elif losstype == 'IKS.B.O2':
-
-        out1 = out1 + 1e-10
-        fac = torch.div(out2,out1)
-        fac = fac - torch.log(fac) - 1
-        fac_batch = torch.sum(fac,1)
-        return torch.mean(fac_batch)
-
-    elif losstype == 'IKS.B':
-        
-        fac1 = torch.div(out1,out2+1e-10)
-        fac1 = fac1 - torch.log(fac1) - 1
-        fac_batch1 = torch.sum(fac1,1)
-        
-        fac2 = torch.div(out2,out1+1e-10)
-        fac2 = fac - torch.log(fac2) - 1
-        fac_batch2 = torch.sum(fac2,1)
-
-        fac_batch = fac_batch1 + fac_batch2
-        return torch.mean(fac_batch)
-
+             
     else:
         raise ValueError('Unknown loss type')
 
