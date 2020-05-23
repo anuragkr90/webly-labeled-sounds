@@ -4,4 +4,4 @@ Github repo for "Learning Sound Events fromWebly Labeled Data", Anurag Kumar , A
 in 28th International Joint Conference on Artificial Intelligence **(IJCAI), 2019**. 
 
 
-## Code and Data coming out soon!
+## Data coming out soon!
